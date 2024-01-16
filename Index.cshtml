@@ -1,8 +1,223 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model List<TreeViewNode>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+
+<form method="post" asp-action="Index">
+
+    <ul>
+        @foreach (var item in Model)
+        {
+            <li>
+
+                <button class="toggle-btn expand-button" style="color: black;">+</button>
+                <label>
+                    <input type="checkbox" class="tree-node parent-node" name='node-{@item.NodeId}' value='{@item.NodeId}' data-id="@item.NodeId" @if (item.IsSelected) {
+                <text> checked</text>
+                }>
+                </label>
+
+                @item.NodeName
+                @if (item.Children.Count > 0)
+                {
+
+                    await RenderChildNodes(item);
+                }
+            </li>
+        }
+    </ul>
+    @functions {
+        public async Task RenderChildNodes(TreeViewNode parentNode)
+        {
+            <ul>
+
+                @foreach (var childNode in parentNode.Children)
+                {
+                    <li>
+
+                        <button class="toggle-btn expand-button" style="color: black;">+</button>
+                        <label><input id="parent" type="checkbox" class="parent-node child-node" name='node-{@childNode.NodeId}' value='{@childNode.NodeId}' data-id="@childNode.NodeId" @if (childNode.IsSelected) {
+                    <text> checked</text>
+}></label>
+
+                        @childNode.NodeName
+                        @if (childNode.Children.Count > 0)
+                        {
+                            await RenderChildNodes(childNode);
+                        }
+                    </li>
+                }
+
+            </ul>
+        }
+    }
+    <button type="submit" class="btn btn-success">Save Selected Nodes</button>
+
+</form>
+<style>
+    .expand-button {
+        background-color: green;
+        border: none;
+        height: 25px;
+        width: 25px;
+        text-align: center;
+        line-height: 1;
+        outline: none;
+        box-shadow: none;
+        margin-right: 5px;
+        margin: 3px;
+        color: white;
+        font-size: 18px !important;
+    }
+
+    .node {
+        display: block;
+        width: 50px;
+        height: 50px;
+        background-color: gray;
+        margin: 5px;
+        float: left;
+    }
+
+        .node.selected {
+            background-color: blue;
+        }
+</style>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+
+        $('input[type="checkbox"]').click(function () {
+            if ($(this).is(':checked')) {
+                $(this).closest('li').parents('li').children('input[type="checkbox"]').prop('checked', true);
+
+            } else {
+                $(this).closest('li').find('input[type="checkbox"]').prop('checked', false);
+            }
+        });
+    });
+</script>
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $(function () {
+            $('.expand-button').click(function (e) {
+                e.preventDefault();
+                var $ul = $(this).siblings('ul');
+                if ($ul.is(':visible')) {
+                    $(this).text('+');
+                    $ul.hide();
+                }
+                else {
+                    $(this).text('-');
+                    $ul.show();
+                }
+            });
+        })
+
+        $(function () {
+            $('.tree-node').change(function () {
+                var $this = $(this);
+                var nodeId = $this.data('id');
+                var isChecked = $this.is(':checked');
+                var parentNode = GetParentNode(nodeId);
+                //alert(isChecked);
+                // set the IsSelected property of the node
+                SetNodeSelected(nodeId, isChecked);
+
+                SetChildNodesSelected(nodeId, isChecked);
+
+                SetParentNodesSelected(parentNode);
+            });
+
+            function SetNodeSelected(nodeId, isSelected) {
+                // find the node in the model by its Id and set its IsSelected property
+        @Html.Raw(Json.Serialize(Model)) // serialize the model as a JSON object
+                        .find(node => node.Id === nodeId)
+                        .IsSelected = isSelected;
+            }
+
+            function SetChildNodesSelected(parentNodeId, isSelected) {
+                // find all child nodes of the parent node and set their IsSelected property
+        @Html.Raw(Json.Serialize(Model))
+                        .filter(node => node.ParentId === parentNodeId)
+                        .forEach(node => {
+                            node.IsSelected = isSelected;
+                            // set the IsSelected property of all child nodes recursively
+                            SetChildNodesSelected(node.Id, isSelected);
+                            $(`input.tree-node[data-id="${node.Id}"]`).prop('checked', isSelected);
+                        });
+            }
+
+            function SetParentNodesSelected(parentNode) {
+                while (parentNode != null) {
+                    parentNode.IsSelected = parentNode.Children.every(node => node.IsSelected);
+                    // check the checkbox of each parent node
+                    $(`input.tree-node[data-id="${parentNode.Id}"]`).prop('checked', parentNode.IsSelected);
+                    parentNode = GetParentNode(parentNode.Id);
+                }
+            }
+
+
+            function GetParentNode(nodeId) {
+                // find the parent node of the given node
+                var parentNodeId = @Html.Raw(Json.Serialize(Model))
+                            .find(node => node.id === nodeId)
+                        .ParentId;
+                return @Html.Raw(Json.Serialize(Model))
+                            .find(node => node.id === parentNodeId);
+            }
+
+            $('.tree-node-parent').change(function () {
+                var $this = $(this);
+                var isChecked = $this.is(':checked');
+                var parentNodeId = $this.data('parent-id');
+                var childNodes = $(`.tree-node[data-parent-id="${parentNodeId}"]`);
+                childNodes.prop('checked', isChecked);
+            });
+
+            // To get child checkboxes selected when the parent checkbox is selected,
+            $('.parent-node').click(function () {
+                var isChecked = $(this).is(':checked');
+                $(this).closest('li').find('.child-node').prop('checked', isChecked);
+                var $childCheckboxes = $(this).closest('li').find('.child-node');
+                $childCheckboxes.prop('checked', isChecked);
+
+                // Check/uncheck parent checkbox based on state of child checkboxes
+                var $parentCheckbox = $(this).closest('ul').prev('.parent-node');
+                var allChecked = $childCheckboxes.filter(':checked').length === $childCheckboxes.length;
+                $parentCheckbox.prop('checked', allChecked);
+            });
+
+            $('.child-node').click(function () {
+                var isChecked = $(this).is(':checked');
+                var $parentCheckbox = $(this).closest('ul').prev('.parent-node');
+                if (!isChecked) {
+                    $parentCheckbox.prop('checked', false);
+                } else {
+                    var $childCheckboxes = $(this).closest('ul').find('.child-node');
+                    var allChecked = $childCheckboxes.filter(':checked').length === $childCheckboxes.length;
+                    $parentCheckbox.prop('checked', allChecked);
+                }
+                //console.log($parentCheckbox)
+                // Uncheck parent checkbox if any of its child checkboxes are unchecked
+                if ($parentCheckbox.prop('checked') === false) {
+                    $parentCheckbox.closest('ul').prev('.parent-node').prop('checked', false);
+                }
+
+            });
+
+
+            $('#parent').click(function () {
+                debugger;
+                if (!$(this).is(':checked')) {
+                    return confirm("Are you sure?");
+                }
+            });
+
+        });
+
+
+    </script>
+
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+
